@@ -22,10 +22,12 @@ def _read_one(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path, encoding="latin1")
     match = FILENAME_RE.match(path.name)
     if match:
-        df["Division"] = match.group("division")
-        df["SeasonCode"] = match.group("season")
+        # Two-digit years in older seasons, four-digit in newer ones —
+        # both columns added together to avoid pandas' fragmented-frame
+        # warning from two separate single-column assignments.
+        df = df.assign(Division=match.group("division"), SeasonCode=match.group("season"))
     if "Date" in df.columns:
-        df["Date"] = pd.to_datetime(df["Date"], dayfirst=True, errors="coerce")
+        df["Date"] = pd.to_datetime(df["Date"], format="mixed", dayfirst=True, errors="coerce")
     return df
 
 

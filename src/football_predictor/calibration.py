@@ -161,11 +161,21 @@ def build_long_frame(
         line_col = pick_single_column(df.columns, spec["line_candidates"])
         if line_col is None:
             return None
-        required = list(odds_cols) + [line_col, "FTHG", "FTAG"]
+        numeric_cols = list(odds_cols) + [line_col, "FTHG", "FTAG"]
+        required = numeric_cols
     else:
+        numeric_cols = list(odds_cols) + ([] if market == "1x2" else ["FTHG", "FTAG"])
         required = list(odds_cols) + (["FTR"] if market == "1x2" else ["FTHG", "FTAG"])
 
-    usable = df.dropna(subset=required).copy()
+    # football-data.co.uk's real exports occasionally have a stray
+    # non-numeric character in an odds/line cell (seen in practice: a bare
+    # "`"). Coerce first so those rows drop out as unusable instead of
+    # crashing the whole run.
+    coerced = df.copy()
+    for col in numeric_cols:
+        coerced[col] = pd.to_numeric(coerced[col], errors="coerce")
+
+    usable = coerced.dropna(subset=required).copy()
     if usable.empty:
         return None
 

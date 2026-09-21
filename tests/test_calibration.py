@@ -161,6 +161,24 @@ def test_build_long_frame_ah_none_without_line_column():
     assert build_long_frame(df, "ah") is None
 
 
+def test_build_long_frame_drops_rows_with_non_numeric_odds():
+    # Real football-data.co.uk exports occasionally have a stray non-numeric
+    # character in an odds cell (observed in practice: a bare "`") — it
+    # must be dropped as unusable, not crash the whole run.
+    df = pd.DataFrame(
+        {
+            "AvgH": [2.0, "`", 1.8],
+            "AvgD": [3.3, 3.4, 3.2],
+            "AvgA": [3.6, 3.5, 4.0],
+            "FTR": ["H", "A", "H"],
+        }
+    )
+    built = build_long_frame(df, "1x2")
+    assert built is not None
+    long_df, odds_cols, line_col = built
+    assert len(long_df) == 2 * 3  # only the 2 clean rows survive
+
+
 def test_calibration_report_ah_uses_market_average_line():
     df = pd.DataFrame(
         {
