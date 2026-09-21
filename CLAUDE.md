@@ -136,48 +136,47 @@ actual result, per league) before writing any model code.
 The data pipeline and calibration-check scaffold (`src/football_predictor/`,
 `scripts/`) exist — see `README.md` for how to run them.
 
-### First calibration run (2015/16–2025/26 seasons, ~3,600–3,750 matches/league)
+### Calibration run, all three markets (2015/16–2025/26 seasons, ~3,600–3,750 matches/league)
 
 | Division | League | Market | ECE | Brier | n |
 |---|---|---|---|---|---|
-| E2 | League One | 1x2 | **0.0204** | 0.2022 | 3712 |
+| E2 | League One | 1x2 | 0.0204 | 0.2022 | 3712 |
+| E3 | League Two | ah | 0.0200 | 0.2060 | 3752 |
 | EC | National League | 1x2 | 0.0101 | 0.2024 | 3642 |
 | E3 | League Two | ou25 | 0.0091 | 0.2440 | 3752 |
 | E2 | League One | ou25 | 0.0088 | 0.2457 | 3712 |
 | E3 | League Two | 1x2 | 0.0081 | 0.2105 | 3752 |
+| E2 | League One | ah | 0.0069 | 0.2052 | 3712 |
 | EC | National League | ou25 | 0.0032 | 0.2449 | 3642 |
+| EC | National League | ah | 0.0011 | 0.2066 | 3641 |
 
-**Reading:** on match result (1X2) and over/under 2.5 goals — the two most
-heavily-bet markets — the market is well-calibrated everywhere. Every ECE is
-under 2.1 percentage points, and Brier scores are nearly identical across
-all three leagues. This is *not* the pattern the premise predicted: League
-One (arguably the "sharpest" of the three) shows the largest 1X2 gap, and
-National League (expected to be the softest) has the *smallest* O/U 2.5 gap
-of the three. On these two markets alone, "lower leagues are priced softer"
-doesn't hold.
+(AH used the closing market-average line, `AHCh` — that column does exist
+in the real export, ahead of `AHh` in the fallback list.)
 
-**This doesn't kill the premise, because it hasn't been tested on the
-market the premise actually named:** the brief specifically flagged Asian
-handicap as the market expected to be softer ("especially on markets like
-Asian handicaps rather than just match result") — 1X2 and O/U 2.5 are the
-most liquid, most scrutinized markets even several divisions down, so
-efficient pricing there isn't surprising.
+**Reading: the premise as stated does not hold, on any of the three
+markets tested.** Every ECE is under 2.1 percentage points and Brier
+scores cluster tightly within each market (~0.20–0.21 for 1X2/AH,
+~0.24–0.25 for O/U 2.5) regardless of league. Asian handicap — the market
+the brief specifically named as most likely to be soft — is in fact the
+*best*-calibrated market of the three for National League (0.0011, the
+smallest gap in the whole table) and only middling for League One
+(0.0069). No league is the worst performer across the board: League One
+is worst on 1X2, League Two is worst on AH, and National League — the
+league the premise leaned on hardest — is the *best*-calibrated league on
+two of the three markets (O/U 2.5 and AH) and merely mid-table on 1X2.
 
-### Asian handicap calibration — implemented, not yet run
-
-`calibration.py` now has an `ah` market: fair probability from
-`AvgAHH`/`AvgAHA` (closing `AvgCAHH`/`AvgCAHA` preferred if present) against
-the market-average line (`AHh`). Quarter-ball lines are split into their two
-neighbouring half/whole lines and settled independently (half win = 0.75,
-push = 0.5, etc — standard AH settlement fractions), so it's not just a
-simplified binary win/loss check.
-
-**Next step, before writing any model code:** run
-`scripts/run_calibration.py` again (now includes `ah` by default) against
-real data and record the result here. If AH also comes back well-calibrated
-across all three leagues, the premise as stated doesn't hold and the
-project needs a different edge hypothesis rather than pushing ahead on
-League One 1X2 just because it had the largest number in the first run.
-Also worth checking the per-bin CSVs/plots in `outputs/` for localized bias
-(e.g. classic favourite–longshot bias) that a single pooled ECE number can
-hide, before drawing conclusions from any of these tables.
+**Conclusion: don't build a model on the "lower leagues are priced softer"
+premise as originally stated** — pooled across the whole probability
+range, none of League One/Two/National League show a market inefficiency
+large enough to single out. Two honest paths forward from here, not yet
+decided:
+1. Check whether the pooled ECE is hiding a *localized* edge — e.g.
+   classic favourite–longshot bias concentrated in the extreme-odds bins,
+   or a specific handicap-line range — using the per-bin CSVs/plots in
+   `outputs/` before fully writing the premise off.
+2. Accept the pricing-inefficiency premise doesn't hold at this
+   granularity and pivot the project's edge hypothesis toward what the
+   brief already flagged as a differentiator instead of pure odds
+   mispricing: the manual news/injury-flag mechanism, and/or corners/cards
+   (phase 2) — a market with no odds to be inefficient against in the
+   first place, so the edge there is forecasting skill, not mispricing.

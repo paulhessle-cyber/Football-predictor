@@ -5,13 +5,14 @@ League), built on the premise that these markets are priced softer than the
 Premier League/Championship. See [`CLAUDE.md`](./CLAUDE.md) for the full
 project brief.
 
-**Current stage: validating the premise, not modelling yet.** Before any
-feature engineering, run the calibration check below — it decides which
-league(s) are actually mispriced enough to be worth building a model for.
-The first real run (see `CLAUDE.md` → Status) found the market well-priced
-on match result and over/under 2.5 goals across all three leagues — the
-open question is whether Asian handicap, calibration for which now exists,
-tells a different story.
+**Current stage: the premise doesn't hold as stated — deciding what's next.**
+The calibration check below has now been run against real data on all three
+markets (see `CLAUDE.md` → Status): every league is well-priced on match
+result, over/under 2.5 goals, *and* Asian handicap (ECE under 2.1pp
+everywhere; National League is in fact the best-calibrated league on two of
+the three markets, the opposite of what the premise predicted). Don't build
+a model on raw odds-mispricing in any single league based on this data —
+see `CLAUDE.md` for the two honest ways to proceed from here.
 
 ## Setup
 
@@ -71,11 +72,9 @@ and settled independently, so a "half win" settles as 0.75 and a push as
 ## A note on this environment
 
 This scaffold was built and unit-tested in a sandbox whose network policy
-blocks football-data.co.uk. The first real data pull and 1X2/O-U
-calibration run happened on an unrestricted machine (see `CLAUDE.md` →
-Status for the results) — the Asian handicap market above hasn't been run
-against real data yet; re-run `scripts/run_calibration.py` after pulling
-data to get those numbers.
+blocks football-data.co.uk. All real data pulls and calibration runs
+happened on an unrestricted machine — see `CLAUDE.md` → Status for the
+results.
 
 ## Project layout
 
