@@ -168,15 +168,29 @@ two of the three markets (O/U 2.5 and AH) and merely mid-table on 1X2.
 **Conclusion: don't build a model on the "lower leagues are priced softer"
 premise as originally stated** — pooled across the whole probability
 range, none of League One/Two/National League show a market inefficiency
-large enough to single out. Two honest paths forward from here, not yet
-decided:
-1. Check whether the pooled ECE is hiding a *localized* edge — e.g.
-   classic favourite–longshot bias concentrated in the extreme-odds bins,
-   or a specific handicap-line range — using the per-bin CSVs/plots in
-   `outputs/` before fully writing the premise off.
-2. Accept the pricing-inefficiency premise doesn't hold at this
-   granularity and pivot the project's edge hypothesis toward what the
-   brief already flagged as a differentiator instead of pure odds
-   mispricing: the manual news/injury-flag mechanism, and/or corners/cards
-   (phase 2) — a market with no odds to be inefficient against in the
-   first place, so the edge there is forecasting skill, not mispricing.
+large enough to single out.
+
+### Decision: pivoted to the manual news/injury-flag mechanism
+
+Rather than raw odds-mispricing, the project is now pursuing the brief's
+other named source of edge: information the market hasn't priced in yet
+(injuries, manager changes, etc.), via the manual-flag stub the brief
+described — "build the manual-flag stub first, prove it changes outcomes
+using the results log, then justify automating."
+
+**Built:** `src/football_predictor/flags.py` (flag store) and
+`results_log.py` (prediction log + flag-impact evaluator, comparing Brier
+score with vs without the flag applied — same methodology as
+`calibration.py`), plus CLI scripts `add_flag.py`, `log_prediction.py`,
+`settle_result.py`, `evaluate_flags.py`. State lives in `logs/flags.csv`
+and `logs/results_log.csv`, tracked in git. See `README.md` → step 3 for
+usage.
+
+**Next step:** start actually using it day-to-day on upcoming fixtures —
+tag what you notice, log a prediction, settle it after the match. Nothing
+useful can be concluded until 30+ flagged results are settled (same
+threshold Formintel needs for Platt calibration); `evaluate_flags.py`
+enforces that rather than giving an early false verdict. The favourite–
+longshot-bias / localized-edge check on the existing calibration per-bin
+data (an alternative considered instead of this pivot) is still sitting
+undone in `outputs/` if this path doesn't pan out.

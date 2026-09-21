@@ -9,6 +9,7 @@ from football_predictor.calibration import (
     calibration_report,
     expected_calibration_error,
     implied_probabilities,
+    odds_to_fair_probabilities,
     pick_odds_columns,
 )
 
@@ -37,6 +38,13 @@ def test_implied_probabilities_strips_overround():
     fair = implied_probabilities(odds)
     assert fair.sum(axis=1).iloc[0] == pytest.approx(1.0)
     assert fair["H"].iloc[0] == pytest.approx(0.5 / 1.035714, rel=1e-4)
+
+
+def test_odds_to_fair_probabilities_matches_dataframe_version():
+    single = odds_to_fair_probabilities(2.00, 3.50, 4.00)
+    frame = implied_probabilities(pd.DataFrame({"H": [2.00], "D": [3.50], "A": [4.00]}))
+    assert single == pytest.approx(tuple(frame.iloc[0]))
+    assert sum(single) == pytest.approx(1.0)
 
 
 def _perfectly_calibrated_1x2_frame(n_per_outcome: int = 100) -> pd.DataFrame:

@@ -78,6 +78,15 @@ def implied_probabilities(odds: pd.DataFrame) -> pd.DataFrame:
     return raw.div(overround, axis=0)
 
 
+def odds_to_fair_probabilities(*odds: float) -> tuple[float, ...]:
+    """Same overround-stripping math as `implied_probabilities`, for a
+    single match's current odds rather than a whole DataFrame — used when
+    logging a live prediction (see results_log.py)."""
+    raw = [1.0 / o for o in odds]
+    overround = sum(raw)
+    return tuple(r / overround for r in raw)
+
+
 def _actual_outcomes_1x2(df: pd.DataFrame) -> pd.DataFrame:
     ftr = df["FTR"]
     return pd.DataFrame(
