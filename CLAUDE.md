@@ -134,10 +134,41 @@ actual result, per league) before writing any model code.
 ## Status
 
 The data pipeline and calibration-check scaffold (`src/football_predictor/`,
-`scripts/`) exist — see `README.md` for how to run them. They have not yet
-been run against real data: the sandbox this was built in cannot reach
-football-data.co.uk (network policy blocks the domain), so the first real
-run needs to happen from an unrestricted machine (the Windows PC, per the
-environment context above). Once that first pull + calibration run is done,
-update this section with the result — which league(s) actually show a
-calibration gap — before writing any model code, per the instruction above.
+`scripts/`) exist — see `README.md` for how to run them.
+
+### First calibration run (2015/16–2025/26 seasons, ~3,600–3,750 matches/league)
+
+| Division | League | Market | ECE | Brier | n |
+|---|---|---|---|---|---|
+| E2 | League One | 1x2 | **0.0204** | 0.2022 | 3712 |
+| EC | National League | 1x2 | 0.0101 | 0.2024 | 3642 |
+| E3 | League Two | ou25 | 0.0091 | 0.2440 | 3752 |
+| E2 | League One | ou25 | 0.0088 | 0.2457 | 3712 |
+| E3 | League Two | 1x2 | 0.0081 | 0.2105 | 3752 |
+| EC | National League | ou25 | 0.0032 | 0.2449 | 3642 |
+
+**Reading:** on match result (1X2) and over/under 2.5 goals — the two most
+heavily-bet markets — the market is well-calibrated everywhere. Every ECE is
+under 2.1 percentage points, and Brier scores are nearly identical across
+all three leagues. This is *not* the pattern the premise predicted: League
+One (arguably the "sharpest" of the three) shows the largest 1X2 gap, and
+National League (expected to be the softest) has the *smallest* O/U 2.5 gap
+of the three. On these two markets alone, "lower leagues are priced softer"
+doesn't hold.
+
+**This doesn't kill the premise, because it hasn't been tested on the
+market the premise actually named:** the brief specifically flagged Asian
+handicap as the market expected to be softer ("especially on markets like
+Asian handicaps rather than just match result") — 1X2 and O/U 2.5 are the
+most liquid, most scrutinized markets even several divisions down, so
+efficient pricing there isn't surprising. AH calibration isn't implemented
+yet (needs push/half-win handling against the handicap line).
+
+**Next step, before writing any model code:** implement AH calibration and
+re-run. If AH also comes back well-calibrated across all three leagues, the
+premise as stated doesn't hold and the project needs a different edge
+hypothesis rather than pushing ahead on League One 1X2 just because it had
+the largest number in this run. Also worth checking the per-bin CSVs/plots
+in `outputs/` for localized bias (e.g. classic favourite–longshot bias)
+that a single pooled ECE number can hide, before drawing conclusions from
+the table above.
