@@ -3,6 +3,8 @@ import pandas as pd
 import pytest
 
 from football_predictor.calibration import (
+    _settle_handicap_line,
+    _split_handicap_lines,
     build_long_frame,
     calibration_report,
     expected_calibration_error,
@@ -50,8 +52,9 @@ def test_build_long_frame_1x2_shape():
     df = _perfectly_calibrated_1x2_frame(10)
     built = build_long_frame(df, "1x2")
     assert built is not None
-    long_df, odds_cols = built
+    long_df, odds_cols, line_col = built
     assert odds_cols == ("AvgH", "AvgD", "AvgA")
+    assert line_col is None
     # 3 outcomes per match
     assert len(long_df) == len(df) * 3
 
@@ -104,3 +107,72 @@ def test_calibration_report_ou25_uses_goal_totals():
 def test_calibration_report_none_without_usable_columns():
     df = pd.DataFrame({"FTHG": [1], "FTAG": [1]})
     assert calibration_report(df, "ou25") is None
+
+
+def test_split_handicap_lines_whole_and_half_are_unsplit():
+    line = pd.Series([-0.5, -1.0, 0.0])
+    lo, hi = _split_handicap_lines(line)
+    assert list(lo) == [-0.5, -1.0, 0.0]
+    assert list(hi) == [-0.5, -1.0, 0.0]
+
+
+def test_split_handicap_lines_quarter_splits_into_neighbours():
+    line = pd.Series([-0.25, 0.25, 0.75])
+    lo, hi = _split_handicap_lines(line)
+    assert list(lo) == pytest.approx([-0.5, 0.0, 0.5])
+    assert list(hi) == pytest.approx([0.0, 0.5, 1.0])
+
+
+def test_settle_handicap_line_win_loss_push():
+    fthg = np.array([2, 0, 1])
+    ftag = np.array([0, 2, 1])
+    line = np.array([-1.0, -1.0, 0.0])
+    # margins: 2-1-0=1 (win), 0-1-2=-3 (loss), 1+0-1=0 (push)
+    result = _settle_handicap_line(fthg, ftag, line)
+    assert list(result) == [1.0, 0.0, 0.5]
+
+
+def test_build_long_frame_ah_quarter_line_half_win():
+    # Home favourite at -0.75 wins by exactly 1 goal: splits into -0.5 (win)
+    # and -1.0 (push) -> settles as a "half win" (0.75).
+    df = pd.DataFrame(
+        {
+            "AvgAHH": [1.9],
+            "AvgAHA": [1.95],
+            "AHh": [-0.75],
+            "FTHG": [2],
+            "FTAG": [1],
+        }
+    )
+    built = build_long_frame(df, "ah")
+    assert built is not None
+    long_df, odds_cols, line_col = built
+    assert line_col == "AHh"
+    home_row = long_df.iloc[0]
+    away_row = long_df.iloc[1]
+    assert home_row["actual"] == pytest.approx(0.75)
+    assert away_row["actual"] == pytest.approx(0.25)
+
+
+def test_build_long_frame_ah_none_without_line_column():
+    df = pd.DataFrame(
+        {"AvgAHH": [1.9], "AvgAHA": [1.95], "FTHG": [1], "FTAG": [0]}
+    )
+    assert build_long_frame(df, "ah") is None
+
+
+def test_calibration_report_ah_uses_market_average_line():
+    df = pd.DataFrame(
+        {
+            "AvgAHH": [1.9, 2.0, 1.85, 2.05],
+            "AvgAHA": [1.95, 1.85, 2.0, 1.8],
+            "AHh": [-0.5, -1.0, 0.0, 0.25],
+            "FTHG": [2, 1, 0, 3],
+            "FTAG": [0, 1, 0, 1],
+        }
+    )
+    report = calibration_report(df, "ah", n_bins=5)
+    assert report is not None
+    assert report.line_column_used == "AHh"
+    assert report.n_matches == 4
+    assert report.n_outcome_rows == 8  # Home + Away per match

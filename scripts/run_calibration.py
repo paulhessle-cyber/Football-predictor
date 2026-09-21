@@ -66,6 +66,7 @@ def main() -> int:
                     "league": DIVISIONS.get(division, division),
                     "market": market,
                     "odds_columns": "/".join(report.odds_columns_used),
+                    "line_column": report.line_column_used or "",
                     "n_matches": report.n_matches,
                     "ece": report.ece,
                     "brier_score": report.brier_score,

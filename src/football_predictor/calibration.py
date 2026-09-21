@@ -38,6 +38,18 @@ MARKETS: dict[str, dict] = {
             ("Avg>2.5", "Avg<2.5"),
         ],
     },
+    "ah": {
+        "outcome_names": ("Home", "Away"),
+        "odds_candidates": [
+            ("AvgCAHH", "AvgCAHA"),
+            ("AvgAHH", "AvgAHA"),
+        ],
+        # football-data.co.uk gives one shared market-average handicap line
+        # (not a separate opening/closing pair the way odds are) — "AHCh" is
+        # tried first in case a future export adds one, "AHh" is what
+        # actually exists today.
+        "line_candidates": ["AHCh", "AHh"],
+    },
 }
 
 
@@ -48,6 +60,13 @@ def pick_odds_columns(
     preferred, then opening) — or None if this DataFrame has neither."""
     for candidate in candidates:
         if all(col in columns for col in candidate):
+            return candidate
+    return None
+
+
+def pick_single_column(columns: pd.Index, candidates: list[str]) -> str | None:
+    for candidate in candidates:
+        if candidate in columns:
             return candidate
     return None
 
@@ -82,24 +101,70 @@ def _actual_outcomes_ou25(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def _split_handicap_lines(line: pd.Series) -> tuple[pd.Series, pd.Series]:
+    """A quarter line (e.g. -0.25) is really a half-stake bet on each of the
+    two neighbouring half-integer lines (0 and -0.5). A half/whole line
+    (e.g. -0.5) is just itself, twice."""
+    quarters = np.round(line.to_numpy(dtype=float) * 4).astype(int)
+    is_quarter_line = quarters % 2 != 0
+    lo = np.where(is_quarter_line, line - 0.25, line)
+    hi = np.where(is_quarter_line, line + 0.25, line)
+    return pd.Series(lo, index=line.index), pd.Series(hi, index=line.index)
+
+
+def _settle_handicap_line(fthg: np.ndarray, ftag: np.ndarray, line: np.ndarray) -> np.ndarray:
+    """Home-side settlement fraction for a single half/whole-integer line:
+    1.0 = full win, 0.5 = push (stake returned), 0.0 = full loss."""
+    margin = fthg + line - ftag
+    return np.where(margin > 0, 1.0, np.where(margin < 0, 0.0, 0.5))
+
+
+def _actual_outcomes_ah(df: pd.DataFrame, line_col: str) -> pd.DataFrame:
+    """Fractional Home/Away coverage of the Asian handicap line, averaging
+    the two split lines for a quarter-ball handicap so a half-win/half-push
+    settles to 0.75 etc., matching standard AH settlement conventions."""
+    lo, hi = _split_handicap_lines(df[line_col].astype(float))
+    fthg = df["FTHG"].to_numpy(dtype=float)
+    ftag = df["FTAG"].to_numpy(dtype=float)
+    home_fraction = (
+        _settle_handicap_line(fthg, ftag, lo.to_numpy())
+        + _settle_handicap_line(fthg, ftag, hi.to_numpy())
+    ) / 2.0
+    return pd.DataFrame(
+        {"Home": home_fraction, "Away": 1.0 - home_fraction}, index=df.index
+    )
+
+
 _ACTUAL_OUTCOME_FUNCS = {
     "1x2": _actual_outcomes_1x2,
     "ou25": _actual_outcomes_ou25,
 }
 
 
-def build_long_frame(df: pd.DataFrame, market: str) -> tuple[pd.DataFrame, MarketColumns] | None:
+def build_long_frame(
+    df: pd.DataFrame, market: str
+) -> tuple[pd.DataFrame, MarketColumns, str | None] | None:
     """Long-format (predicted_prob, actual) pairs, one row per outcome per
-    match, for matches where the odds and result are both present.
+    match, for matches where the odds and result (and, for AH, the
+    handicap line) are all present.
 
-    Returns None if this DataFrame has no usable odds columns for `market`.
+    Returns None if this DataFrame has no usable odds/line columns for
+    `market`.
     """
     spec = MARKETS[market]
     odds_cols = pick_odds_columns(df.columns, spec["odds_candidates"])
     if odds_cols is None:
         return None
 
-    required = list(odds_cols) + (["FTR"] if market == "1x2" else ["FTHG", "FTAG"])
+    line_col: str | None = None
+    if market == "ah":
+        line_col = pick_single_column(df.columns, spec["line_candidates"])
+        if line_col is None:
+            return None
+        required = list(odds_cols) + [line_col, "FTHG", "FTAG"]
+    else:
+        required = list(odds_cols) + (["FTR"] if market == "1x2" else ["FTHG", "FTAG"])
+
     usable = df.dropna(subset=required).copy()
     if usable.empty:
         return None
@@ -108,7 +173,10 @@ def build_long_frame(df: pd.DataFrame, market: str) -> tuple[pd.DataFrame, Marke
     fair = implied_probabilities(odds)
     fair.columns = spec["outcome_names"]
 
-    actual = _ACTUAL_OUTCOME_FUNCS[market](usable)
+    if market == "ah":
+        actual = _actual_outcomes_ah(usable, line_col)
+    else:
+        actual = _ACTUAL_OUTCOME_FUNCS[market](usable)
 
     long_rows = []
     for outcome in spec["outcome_names"]:
@@ -121,7 +189,7 @@ def build_long_frame(df: pd.DataFrame, market: str) -> tuple[pd.DataFrame, Marke
             )
         )
     long_df = pd.concat(long_rows, ignore_index=True)
-    return long_df, odds_cols
+    return long_df, odds_cols, line_col
 
 
 @dataclass
@@ -134,6 +202,7 @@ class CalibrationReport:
     ece: float
     brier_score: float
     log_loss: float
+    line_column_used: str | None = None
     notes: list[str] = field(default_factory=list)
 
 
@@ -180,7 +249,7 @@ def calibration_report(df: pd.DataFrame, market: str, n_bins: int = 10) -> Calib
     built = build_long_frame(df, market)
     if built is None:
         return None
-    long_df, odds_cols = built
+    long_df, odds_cols, line_col = built
 
     bins, ece = expected_calibration_error(long_df, n_bins=n_bins)
 
@@ -199,4 +268,5 @@ def calibration_report(df: pd.DataFrame, market: str, n_bins: int = 10) -> Calib
         ece=ece,
         brier_score=brier,
         log_loss=log_loss,
+        line_column_used=line_col,
     )

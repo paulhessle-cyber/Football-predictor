@@ -8,6 +8,10 @@ project brief.
 **Current stage: validating the premise, not modelling yet.** Before any
 feature engineering, run the calibration check below — it decides which
 league(s) are actually mispriced enough to be worth building a model for.
+The first real run (see `CLAUDE.md` → Status) found the market well-priced
+on match result and over/under 2.5 goals across all three leagues — the
+open question is whether Asian handicap, calibration for which now exists,
+tells a different story.
 
 ## Setup
 
@@ -56,19 +60,22 @@ League One / Two / National League to see where (if anywhere) the "lower
 leagues are priced softer" premise actually holds, per the brief. Build the
 model on whichever league(s) show it.
 
-Markets covered so far: match result (`1x2`) and over/under 2.5 goals
-(`ou25`). Asian handicap calibration isn't implemented yet — it needs
-push/half-win handling against the handicap line that the other two markets
-don't, and validating the premise on the simpler markets first is enough to
-decide whether it's worth building.
+Markets covered: match result (`1x2`), over/under 2.5 goals (`ou25`), and
+Asian handicap (`ah`) — using the market-average line (`AHh`) and
+`AvgAHH`/`AvgAHA` (or closing `AvgCAHH`/`AvgCAHA` if present). Quarter-ball
+lines (e.g. -0.25) are split into their two neighbouring half/whole lines
+and settled independently, so a "half win" settles as 0.75 and a push as
+0.5, matching standard Asian handicap settlement conventions — see
+`_settle_handicap_line` / `_split_handicap_lines` in `calibration.py`.
 
 ## A note on this environment
 
 This scaffold was built and unit-tested in a sandbox whose network policy
-blocks football-data.co.uk, so step 1 has not actually been run against real
-data yet. Run it from an unrestricted machine (the Windows PC, per the
-project's environment notes) to do the first real pull, then step 2 to get
-the actual calibration numbers.
+blocks football-data.co.uk. The first real data pull and 1X2/O-U
+calibration run happened on an unrestricted machine (see `CLAUDE.md` →
+Status for the results) — the Asian handicap market above hasn't been run
+against real data yet; re-run `scripts/run_calibration.py` after pulling
+data to get those numbers.
 
 ## Project layout
 

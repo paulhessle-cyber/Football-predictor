@@ -161,14 +161,23 @@ market the premise actually named:** the brief specifically flagged Asian
 handicap as the market expected to be softer ("especially on markets like
 Asian handicaps rather than just match result") — 1X2 and O/U 2.5 are the
 most liquid, most scrutinized markets even several divisions down, so
-efficient pricing there isn't surprising. AH calibration isn't implemented
-yet (needs push/half-win handling against the handicap line).
+efficient pricing there isn't surprising.
 
-**Next step, before writing any model code:** implement AH calibration and
-re-run. If AH also comes back well-calibrated across all three leagues, the
-premise as stated doesn't hold and the project needs a different edge
-hypothesis rather than pushing ahead on League One 1X2 just because it had
-the largest number in this run. Also worth checking the per-bin CSVs/plots
-in `outputs/` for localized bias (e.g. classic favourite–longshot bias)
-that a single pooled ECE number can hide, before drawing conclusions from
-the table above.
+### Asian handicap calibration — implemented, not yet run
+
+`calibration.py` now has an `ah` market: fair probability from
+`AvgAHH`/`AvgAHA` (closing `AvgCAHH`/`AvgCAHA` preferred if present) against
+the market-average line (`AHh`). Quarter-ball lines are split into their two
+neighbouring half/whole lines and settled independently (half win = 0.75,
+push = 0.5, etc — standard AH settlement fractions), so it's not just a
+simplified binary win/loss check.
+
+**Next step, before writing any model code:** run
+`scripts/run_calibration.py` again (now includes `ah` by default) against
+real data and record the result here. If AH also comes back well-calibrated
+across all three leagues, the premise as stated doesn't hold and the
+project needs a different edge hypothesis rather than pushing ahead on
+League One 1X2 just because it had the largest number in the first run.
+Also worth checking the per-bin CSVs/plots in `outputs/` for localized bias
+(e.g. classic favourite–longshot bias) that a single pooled ECE number can
+hide, before drawing conclusions from any of these tables.
